@@ -117,3 +117,7 @@ fig.update_layout(
 fig.show()
 
 fig.write_html("index.html", full_html=True, include_plotlyjs='cdn')
+
+regionais_excel = regionais[['Municipio', 'SENAI', 'SESI', 'FIEB', 'FLAG_DIFERENTE']]
+regionais_excel = regionais_excel.rename(columns={'FLAG_DIFERENTE': 'REGIONAL DIFERENTE'})
+regionais_excel.to_excel('regionais.xlsx', index=False)
