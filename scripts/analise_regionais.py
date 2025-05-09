@@ -4,7 +4,6 @@ from geobr import read_municipality
 import plotly.express as px
 import plotly.graph_objects as go
 
-
 regionais_senai = pd.read_excel('raw/MUNICIPIOS POR REGIONAL_050525.xlsx', dtype=str)
 caminho_dimensao_municipios = r"C:\Users\jorge.sm\OneDrive - Sistema FIEB\Documentos\Observatorio\Dimensoes\Municipios\dados\dimensao_territorios_municipios.csv"
 dimensao_municipios = pd.read_csv(caminho_dimensao_municipios, dtype=str)
@@ -28,29 +27,47 @@ regionais_fieb['REGIONAL_FIEB'] = regionais_fieb['REGIONAL_FIEB'].replace('RMS',
 regionais_fieb['FIEB'] = regionais_fieb['REGIONAL_FIEB'].copy()
 regionais_fieb['REGIONAL_FIEB'] = regionais_fieb['REGIONAL_FIEB'].replace('CENTRO', 'CENTRAL')
 
+regionais_iel = pd.read_excel('raw/zonamento atualizado 2 IEL.xlsx', dtype=str)
+regionais_iel['IEL'] = regionais_iel['regional'].copy()
+regionais_iel['REGIONAL_IEL'] = regionais_iel['regional'].copy()
+regionais_iel['REGIONAL_IEL'] = regionais_iel['REGIONAL_IEL'].replace('METROPOLITANA E LITORAL NORTE', 'LITORAL NORTE/RMS')
+regionais_iel = regionais_iel.rename(columns={'codigoibge': 'CO_MUN_IBGE_7'})
+
 regionais = regionais_senai.merge(regionais_sesi, how='outer', on='CO_MUN_RFB')
 regionais = regionais.merge(regionais_fieb[['CO_MUN_RFB', 'REGIONAL_FIEB', 'FIEB']], how='left', on='CO_MUN_RFB')
+regionais = regionais.merge(regionais_iel[['CO_MUN_IBGE_7', 'REGIONAL_IEL', 'IEL']], how='left', on='CO_MUN_IBGE_7')
 
 def define_flag(row):
     sesi = row['REGIONAL_SESI']
     senai = row['REGIONAL_SENAI']
     fieb = row['REGIONAL_FIEB']
     
-    if sesi != fieb and senai != fieb and sesi != senai:
-        return 'TODAS'
-    elif sesi != fieb and senai == fieb:
-        return 'SESI'
-    elif senai != fieb and sesi == fieb:
-        return 'SENAI'
-    elif sesi == senai and sesi != fieb:
-        return 'FIEB'
-    else:
-        return None
+    flags = []
+    if sesi != fieb:
+        flags.append('SESI')
+    if senai != fieb:
+        flags.append('SENAI')
+    if row['REGIONAL_IEL'] != fieb:
+        flags.append('IEL')
+    
+    return ', '.join(flags) if flags else None
 
 regionais['FLAG_DIFERENTE'] = regionais.apply(define_flag, axis=1)
 
-regionais[regionais['FLAG_DIFERENTE'].notnull()]
+regionais['COMPARACAO_FIEB_SESI'] = regionais.apply(
+    lambda row: 'NÃO' if row['REGIONAL_FIEB'] != row['REGIONAL_SESI'] else 'SIM',
+    axis=1
+)
 
+regionais['COMPARACAO_FIEB_SENAI'] = regionais.apply(
+    lambda row: 'NÃO' if row['REGIONAL_FIEB'] != row['REGIONAL_SENAI'] else 'SIM',
+    axis=1
+)
+
+regionais['COMPARACAO_FIEB_IEL'] = regionais.apply(
+    lambda row: 'NÃO' if row['REGIONAL_FIEB'] != row['REGIONAL_IEL'] else 'SIM',
+    axis=1
+)
 
 # Carregar geometria dos municípios do Brasil
 gdf_municipios = read_municipality(year=2020, simplified=True)
@@ -91,7 +108,8 @@ fig = px.choropleth_map(
     hover_data={
         'SENAI': True,
         'SESI': True,
-        'FIEB': True
+        'FIEB': True,
+        'IEL': True
     },
     color_discrete_map=color_map,
     category_orders={"REGIONAL_FIEB": list(color_map.keys())},
@@ -118,6 +136,90 @@ fig.show()
 
 fig.write_html("index.html", full_html=True, include_plotlyjs='cdn')
 
-regionais_excel = regionais[['Municipio', 'SENAI', 'SESI', 'FIEB', 'FLAG_DIFERENTE']]
+regionais_excel = regionais[['Municipio', 'SENAI', 'SESI', 'IEL', 'FIEB', 'FLAG_DIFERENTE', 'COMPARACAO_FIEB_SESI', 'COMPARACAO_FIEB_SENAI', 'COMPARACAO_FIEB_IEL']]
 regionais_excel = regionais_excel.rename(columns={'FLAG_DIFERENTE': 'REGIONAL DIFERENTE'})
 regionais_excel.to_excel('regionais.xlsx', index=False)
+
+import plotly.io as pio
+import json
+import os
+
+# === MAPA 1: FLAG_DIFERENTE (REGIONAIS DIFERENTES) ===
+gdf_regionais['MAPA_1'] = gdf_regionais.apply(
+    lambda x: 'REGIONAIS DIFERENTES' if pd.notnull(x['FLAG_DIFERENTE']) else x['REGIONAL_FIEB'],
+    axis=1
+)
+
+fig1 = px.choropleth_mapbox(
+    gdf_regionais,
+    geojson=gdf_regionais.geometry,
+    locations=gdf_regionais.index,
+    color='MAPA_1',
+    hover_name='Municipio',
+    hover_data={'SENAI': True, 'SESI': True, 'FIEB': True},
+    color_discrete_map=color_map,
+    mapbox_style="carto-positron",
+    center={"lat": -12.9, "lon": -38.5},
+    zoom=5.5,
+    opacity=0.7
+)
+
+# === MAPA 2: COMPARACAO_FIEB_SESI ===
+fig2 = px.choropleth_mapbox(
+    gdf_regionais,
+    geojson=gdf_regionais.geometry,
+    locations=gdf_regionais.index,
+    color='COMPARACAO_FIEB_SESI',
+    hover_name='Municipio',
+    hover_data={'SENAI': True, 'SESI': True, 'FIEB': True},
+    color_discrete_map={'SIM': '#4682B4', 'NÃO': '#FF0000'},
+    mapbox_style="carto-positron",
+    center={"lat": -12.9, "lon": -38.5},
+    zoom=5.5,
+    opacity=0.7
+)
+
+# === MAPA 3: COMPARACAO_FIEB_SENAI ===
+fig3 = px.choropleth_mapbox(
+    gdf_regionais,
+    geojson=gdf_regionais.geometry,
+    locations=gdf_regionais.index,
+    color='COMPARACAO_FIEB_SENAI',
+    hover_name='Municipio',
+    hover_data={'SENAI': True, 'SESI': True, 'FIEB': True},
+    color_discrete_map={'SIM': '#4682B4', 'NÃO': '#FF0000'},
+    mapbox_style="carto-positron",
+    center={"lat": -12.9, "lon": -38.5},
+    zoom=5.5,
+    opacity=0.7
+)
+
+# === MAPA 4: COMPARACAO_FIEB_IEL ===
+fig4 = px.choropleth_mapbox(
+    gdf_regionais,
+    geojson=gdf_regionais.geometry,
+    locations=gdf_regionais.index,
+    color='COMPARACAO_FIEB_IEL',
+    hover_name='Municipio',
+    hover_data={'SENAI': True, 'SESI': True, 'FIEB': True},
+    color_discrete_map={'SIM': '#4682B4', 'NÃO': '#FF0000'},
+    mapbox_style="carto-positron",
+    center={"lat": -12.9, "lon": -38.5},
+    zoom=5.5,
+    opacity=0.7
+)
+
+
+
+# Salvar cada figura como JSON
+os.makedirs("mapas", exist_ok=True)
+with open("mapas/mapa1.json", "w") as f: 
+    json.dump(json.loads(pio.to_json(fig1)), f)
+with open("mapas/mapa2.json", "w") as f: 
+    json.dump(json.loads(pio.to_json(fig2)), f)
+with open("mapas/mapa3.json", "w") as f: 
+    json.dump(json.loads(pio.to_json(fig3)), f)
+with open("mapas/mapa4.json", "w") as f:
+    json.dump(json.loads(pio.to_json(fig4)), f)
+
+fig3.show()
