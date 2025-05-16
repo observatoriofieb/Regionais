@@ -79,6 +79,8 @@ regionais['code_muni'] = pd.to_numeric(regionais['code_muni'])
 
 # Unir sua tabela com a geometria via CO_MUN_IBGE_7 (code_muni)
 gdf_regionais = gdf_municipios.merge(regionais, on='code_muni', how='inner')
+gdf_regionais
+gdf_regionais.to_file("gdf_regionais.gpkg", driver="GPKG")
 
 # Criar uma coluna nova com valor de REGIONAL_FIEB e onde FALG_DIFERENTE não é nulo mudar o valor para "Regionais Diferentes"
 gdf_regionais['REGIONAL'] = gdf_regionais.apply(
@@ -223,3 +225,101 @@ with open("mapas/mapa4.json", "w") as f:
     json.dump(json.loads(pio.to_json(fig4)), f)
 
 fig3.show()
+
+# Mapa SESI e SENAI
+# Mapa que compara as regionais sesi e senai e mostre as diferenças. 
+# Usa o sesi como base e mostre as diferenças com a cor vermelha.
+def define_flag_sesi_senai(row):
+    sesi = row['REGIONAL_SESI']
+    senai = row['REGIONAL_SENAI']
+    
+    flags = None
+    if sesi != senai:
+        flags = 'DIFERENTES'
+    
+    return flags
+
+gdf_regionais['FLAG_DIFERENTE_SENAI_SESI'] = gdf_regionais.apply(define_flag_sesi_senai, axis=1)
+gdf_regionais['REGIONAL_SENAI_SESI'] = gdf_regionais.apply(
+    lambda x: 'REGIONAIS DIFERENTES' if pd.notnull(x['FLAG_DIFERENTE_SENAI_SESI']) else x['REGIONAL_SESI'],
+    axis=1
+)
+
+regionais['FLAG_DIFERENTE_SENAI_SESI'] = regionais.apply(define_flag_sesi_senai, axis=1)
+regionais['REGIONAL_SENAI_SESI'] = regionais.apply(
+    lambda x: 'REGIONAIS DIFERENTES' if pd.notnull(x['FLAG_DIFERENTE_SENAI_SESI']) else x['REGIONAL_SESI'],
+    axis=1
+)
+
+# Criar o gráfico base
+fig_sesi_senai = px.choropleth_map(
+    gdf_regionais,
+    geojson=gdf_regionais.geometry,
+    locations=gdf_regionais.index,
+    color='REGIONAL_SENAI_SESI',
+    hover_name='Municipio',
+    hover_data={
+        'SENAI': True,
+        'SESI': True,
+        'FIEB': True
+    },
+    color_discrete_map=color_map,
+    category_orders={"REGIONAL_SENAI_SESI": list(color_map.keys())},
+    center={"lat": -12.9, "lon": -38.5},
+    zoom=5.5,
+    opacity=0.7
+)
+
+# Ajustar layout final
+fig_sesi_senai.update_layout(
+    margin={"r": 0, "t": 0, "l": 0, "b": 0},
+    legend=dict(
+        title="Legenda",
+        title_font_size=12,
+        font=dict(size=10),
+        x=0.01,
+        y=0.99,
+        bgcolor='rgba(255,255,255,0.8)',
+        itemsizing='constant'
+    )
+)
+
+fig_sesi_senai.show()
+
+regionais[regionais['FLAG_DIFERENTE_SENAI_SESI'] == 'DIFERENTES']
+regionais.to_excel('regionais_sesi_senai.xlsx', index=False)
+
+
+fig_fieb = px.choropleth_map(
+    gdf_regionais,
+    geojson=gdf_regionais.geometry,
+    locations=gdf_regionais.index,
+    color='REGIONAL_FIEB',
+    hover_name='Municipio',
+    hover_data={
+        'SENAI': True,
+        'SESI': True,
+        'FIEB': True
+    },
+    color_discrete_map=color_map,
+    category_orders={"REGIONAL_FIEB": list(color_map.keys())},
+    center={"lat": -12.9, "lon": -38.5},
+    zoom=5.5,
+    opacity=0.7
+)
+
+# Ajustar layout final
+fig_fieb.update_layout(
+    margin={"r": 0, "t": 0, "l": 0, "b": 0},
+    legend=dict(
+        title="Legenda",
+        title_font_size=12,
+        font=dict(size=10),
+        x=0.01,
+        y=0.99,
+        bgcolor='rgba(255,255,255,0.8)',
+        itemsizing='constant'
+    )
+)
+
+fig_fieb.show()
