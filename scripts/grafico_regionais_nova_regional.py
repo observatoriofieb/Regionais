@@ -7,6 +7,16 @@ import plotly.graph_objects as go
 gdf_regionais = gpd.read_file('gdf_regionais.gpkg')
 regionais_senai_sesi = gdf_regionais[['SENAI', 'Municipio', 'SESI', 'FIEB', 'IEL', 'geometry']].copy()
 
+# Lista dos municípios da Chapada
+municipios_chapada = [
+    'ABAIRA', 'ANDARAI', 'BARRA DA ESTIVA', 'BONINAL', 'BONITO', 'IBICOARA', 'IBITIARA', 'IRAQUARA',
+    'ITAETE', 'JUSSIAPE', 'LENCOIS', 'MARCIONILIO SOUZA', 'MORRO DO CHAPEU', 'MUCUGE', 'NOVA REDENCAO',
+    'NOVO HORIZONTE', 'PALMEIRAS', 'PIATA', 'RIO DE CONTAS', 'SEABRA', 'SOUTO SOARES', 'UTINGA', 'WAGNER'
+]
+
+# Adiciona coluna Chapada
+regionais_senai_sesi['Chapada'] = regionais_senai_sesi['Municipio'].apply(lambda x: 'Sim' if x in municipios_chapada else 'Não')
+
 regionais_senai_sesi['Regionais Pós Mudança'] = regionais_senai_sesi['FIEB'].copy()
 
 municipios_metropolitana = ['CAMACARI', 'CANDEIAS', "DIAS D'AVILA", 'ITAPARICA', 'LAURO DE FREITAS', 
@@ -15,15 +25,16 @@ municipios_metropolitana = ['CAMACARI', 'CANDEIAS', "DIAS D'AVILA", 'ITAPARICA',
                             'VERA CRUZ']
 
 regionais_senai_sesi.loc[regionais_senai_sesi['Municipio'].isin(municipios_metropolitana), 'Regionais Pós Mudança'] = 'RMS'
-regionais_senai_sesi['Regionais Pós Mudança'] = regionais_senai_sesi['Regionais Pós Mudança'].str.replace('LITORAL NORTE/RMS', 'NOVA_REGIONAL')
+regionais_senai_sesi['Regionais Pós Mudança'] = regionais_senai_sesi['Regionais Pós Mudança'].str.replace('LITORAL NORTE/RMS', 'NOVA REGIONAL')
 regionais_senai_sesi['Regionais Pós Mudança'] = regionais_senai_sesi['Regionais Pós Mudança'].str.replace('CENTRO', 'CENTRAL')
-municipios_regional_alagoinhas = ['ALAGOINHAS', 'OURICANGAS', 'ARAMARI', 'PEDRAO']
-regionais_senai_sesi.loc[regionais_senai_sesi['Municipio'].isin(municipios_regional_alagoinhas), 'Regionais Pós Mudança'] = 'NOVA_REGIONAL'
+municipios_regional_alagoinhas = ['ALAGOINHAS', 'OURICANGAS', 'ARAMARI', 'PEDRAO', 'POJUCA']
+regionais_senai_sesi.loc[regionais_senai_sesi['Municipio'].isin(municipios_regional_alagoinhas), 'Regionais Pós Mudança'] = 'NOVA REGIONAL'
 municipios_sil = ['ITAGIBA', 'ITAMARI', 'IPIAU', 'SANTA CRUZ DA VITORIA', 'NOVA IBIA', 'IBIRATAIA', 'UBATA',
                   'BARRA DO ROCHA', 'GONGOGI']
 regionais_senai_sesi.loc[regionais_senai_sesi['Municipio'].isin(municipios_sil), 'Regionais Pós Mudança'] = 'SUL'
 municipios_norte = ['MONTE SANTO', 'ITIUBA', 'VARZEA DO POCO', 'CAPIM GROSSO']
 regionais_senai_sesi.loc[regionais_senai_sesi['Municipio'].isin(municipios_norte), 'Regionais Pós Mudança'] = 'NORTE'
+regionais_senai_sesi.loc[regionais_senai_sesi['Municipio'] == 'EUCLIDES DA CUNHA', 'Regionais Pós Mudança'] = 'CENTRAL'
 
 # Normalizar nomes para comparação correta
 def normalizar_regiao(nome):
@@ -62,7 +73,7 @@ color_map = {
     'CENTRAL': '#B0E0E6',        # Azul claro (PowderBlue)
     'NORTE': '#87CEEB',          # Azul céu (SkyBlue)
     'RMS': '#00BFFF', # Azul aço (SteelBlue)
-    'NOVA_REGIONAL': 'DarkSlateGrey',  # Cinza escuro (DarkSlateGrey)
+    'NOVA REGIONAL': 'DarkSlateGrey',  # Cinza escuro (DarkSlateGrey)
     'SUDOESTE': '#1E90FF',       # Azul Dodge (DodgerBlue)
     'EXTREMO SUL': '#000080',    # Azul marinho (Navy)
     'SUL': '#4169E1',            # Azul real (RoyalBlue)
@@ -81,7 +92,8 @@ fig = px.choropleth_map(
         'SENAI': True,
         'SESI': True,
         'FIEB': True,
-        'IEL': True
+        'IEL': True,
+        'Chapada': True
     },
     color_discrete_map=color_map,
     category_orders={"Regionais Pós Mudança": list(color_map.keys())},
