@@ -35,6 +35,8 @@ regionais_senai_sesi.loc[regionais_senai_sesi['Municipio'].isin(municipios_sil),
 municipios_norte = ['MONTE SANTO', 'ITIUBA', 'VARZEA DO POCO', 'CAPIM GROSSO']
 regionais_senai_sesi.loc[regionais_senai_sesi['Municipio'].isin(municipios_norte), 'Regionais Pós Mudança'] = 'NORTE'
 regionais_senai_sesi.loc[regionais_senai_sesi['Municipio'] == 'EUCLIDES DA CUNHA', 'Regionais Pós Mudança'] = 'CENTRAL'
+regionais_senai_sesi.loc[regionais_senai_sesi['Municipio'].isin(municipios_chapada), 'Regionais Pós Mudança'] = 'CHAPADA (NORTE)'
+
 
 # Normalizar nomes para comparação correta
 def normalizar_regiao(nome):
@@ -78,7 +80,8 @@ color_map = {
     'EXTREMO SUL': '#000080',    # Azul marinho (Navy)
     'SUL': '#4169E1',            # Azul real (RoyalBlue)
     'OESTE': '#4682B4',         # Azul profundo (DeepSkyBlue)
-    'REGIONAIS DIFERENTES': '#FF0000'  # Vermelho
+    'REGIONAIS DIFERENTES': '#FF0000',  # Vermelho
+    'CHAPADA (NORTE)': "#D1C520"
 }
 
 # Criar o gráfico base
